@@ -27,6 +27,7 @@ dependencies:
   url_launcher: ^6.3.0  # For SMS/email links
   email_validator: ^3.0.0  # Email validation
   provider: ^6.1.2  # Theme management
+  flutter_blue_plus: ^1.32.12  # Bluetooth functionality
 
 dev_dependencies:
   flutter_test:

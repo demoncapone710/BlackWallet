@@ -18,6 +18,7 @@ import 'send_via_contact_screen.dart';
 import 'notification_settings_screen.dart';
 import 'quick_wins_screen.dart';
 import 'transaction_search_screen.dart';
+import 'bluetooth_advertising_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   @override
@@ -233,6 +234,12 @@ class _WalletScreenState extends State<WalletScreen> {
                     MaterialPageRoute(builder: (_) => const QuickWinsScreen()),
                   );
                   break;
+                case 'bluetooth_advertising':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const BluetoothAdvertisingScreen()),
+                  );
+                  break;
               }
             },
             itemBuilder: (context) => [
@@ -246,6 +253,8 @@ class _WalletScreenState extends State<WalletScreen> {
               _buildMenuItem(Icons.qr_code_scanner, 'Scan QR', 'scan', const Color(0xFF448AFF)),
               const PopupMenuDivider(),
               _buildMenuItem(Icons.contactless, 'Contactless Payment (HCE)', 'hce_payment', const Color(0xFF00E676)),
+              const PopupMenuDivider(),
+              _buildMenuItem(Icons.bluetooth_searching, 'Bluetooth Advertising', 'bluetooth_advertising', const Color(0xFF2196F3)),
               const PopupMenuDivider(),
               if (kDebugMode)
                 _buildMenuItem(Icons.bug_report, 'Dev Testing', 'dev_test', const Color(0xFFFF9800)),
