@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 import asyncio
 import logging
 
-from routes import user, wallet, admin, payment, payment_methods, auth, card_routes, quick_wins_routes, real_payments
+from routes import user, wallet, admin, payment, payment_methods, auth, card_routes, quick_wins_routes, real_payments, stripe_connect, transaction_sync, invites, webhooks
 from database import Base, engine
 from config import settings
 from middleware import setup_middleware, get_rate_limiter
@@ -33,6 +33,24 @@ async def lifespan(app: FastAPI):
         backup_task = asyncio.create_task(backup_scheduler())
         logger.info("Backup scheduler started")
     
+    # Start invite expiry scheduler
+    invite_scheduler_task = None
+    try:
+        from scheduler import process_expired_invites
+        async def run_scheduler():
+            import schedule
+            schedule.every(5).minutes.do(process_expired_invites)
+            while True:
+                schedule.run_pending()
+                await asyncio.sleep(60)
+        
+        invite_scheduler_task = asyncio.create_task(run_scheduler())
+        # Run once immediately
+        process_expired_invites()
+        logger.info("Invite expiry scheduler started (runs every 5 minutes)")
+    except Exception as e:
+        logger.error(f"Failed to start invite scheduler: {e}")
+    
     # Initialize Sentry for error tracking
     if settings.SENTRY_DSN:
         import sentry_sdk
@@ -53,6 +71,12 @@ async def lifespan(app: FastAPI):
         backup_task.cancel()
         try:
             await backup_task
+        except asyncio.CancelledError:
+            pass
+    if invite_scheduler_task is not None:
+        invite_scheduler_task.cancel()
+        try:
+            await invite_scheduler_task
         except asyncio.CancelledError:
             pass
     logger.info("Application shutdown complete")
@@ -84,13 +108,17 @@ limiter = get_rate_limiter()
 # Include routers
 app.include_router(user.router)
 app.include_router(wallet.router)
-app.include_router(admin.router)
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(payment.router, prefix="/api/payment", tags=["payment"])
 app.include_router(payment_methods.router, prefix="/api/payment-methods", tags=["payment-methods"])
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(card_routes.router, prefix="/api", tags=["cards"])
 app.include_router(quick_wins_routes.router, prefix="/api", tags=["quick-wins"])
 app.include_router(real_payments.router, prefix="/api/real-payments", tags=["real-payments"])
+app.include_router(stripe_connect.router, prefix="/api", tags=["stripe-connect"])
+app.include_router(transaction_sync.router, prefix="/api", tags=["transaction-sync"])
+app.include_router(invites.router, prefix="/api/invites", tags=["money-invites"])
+app.include_router(webhooks.router, prefix="/api", tags=["webhooks"])
 
 
 @app.get("/")

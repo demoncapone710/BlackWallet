@@ -4,9 +4,26 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-if not stripe.api_key:
-    raise ValueError("STRIPE_SECRET_KEY environment variable is required")
+# Determine which Stripe mode to use (test or live)
+STRIPE_MODE = os.getenv("STRIPE_MODE", "test").lower()
+
+if STRIPE_MODE == "live":
+    # Use live API keys
+    stripe.api_key = os.getenv("STRIPE_LIVE_SECRET_KEY")
+    STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_LIVE_PUBLISHABLE_KEY")
+    if not stripe.api_key:
+        raise ValueError("STRIPE_LIVE_SECRET_KEY environment variable is required for live mode")
+    print(f"🔴 Stripe initialized in LIVE mode")
+else:
+    # Use test API keys (default)
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
+    if not stripe.api_key:
+        raise ValueError("STRIPE_SECRET_KEY environment variable is required for test mode")
+    print(f"🧪 Stripe initialized in TEST mode")
+
+# Export the publishable key for use in other modules
+__all__ = ['StripeService', 'STRIPE_PUBLISHABLE_KEY', 'STRIPE_MODE']
 
 class StripeService:
     """Service for handling Stripe operations"""

@@ -242,8 +242,8 @@ async def send_money_by_contact(
         if amount <= 0:
             raise HTTPException(status_code=400, detail="Amount must be positive")
         
-        # Get sender
-        sender = db.query(User).filter(User.username == user["username"]).first()
+        # Get sender (user is already a User object)
+        sender = user
         if not sender:
             raise HTTPException(status_code=404, detail="Sender not found")
         

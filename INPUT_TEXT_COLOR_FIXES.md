@@ -77,7 +77,20 @@ Fixed all text input fields throughout the app to ensure black text color on whi
 - **PIN field**: Added `style: const TextStyle(color: Colors.black)`
 - **Total**: 1 field fixed
 
-### 8. Previously Fixed Screens
+### 8. Admin Portal Screens (Latest Update)
+
+#### `lib/screens/admin/user_management_screen.dart` ✅
+- **Search field**: Added `style: const TextStyle(color: Colors.black)`
+- **Balance adjustment field**: Added `style: const TextStyle(color: Colors.black)`
+- **Total**: 2 fields fixed
+
+#### `lib/screens/admin/notifications_screen.dart` ✅
+- **Title field**: Added `style: const TextStyle(color: Colors.black)`
+- **Message field**: Added `style: const TextStyle(color: Colors.black)`
+- **User ID field**: Added `style: const TextStyle(color: Colors.black)`
+- **Total**: 3 fields fixed
+
+### 9. Previously Fixed Screens
 These were already fixed in earlier updates:
 - ✅ `lib/screens/login_screen.dart` (2 fields)
 - ✅ `lib/screens/signup_screen.dart` (3 fields)
@@ -118,10 +131,11 @@ Used `style: const TextStyle(color: Colors.white)` for screens with dark backgro
 - [x] Signup fields visible
 
 ## Result
-All 25+ text input fields now have proper text color for maximum visibility:
+All 30+ text input fields now have proper text color for maximum visibility:
 - **Black text** on white/light backgrounds
 - **White text** on dark backgrounds
 - No more invisible text issues when typing
+- **Admin screens** now fully accessible with visible text fields
 
 ## Status: ✅ COMPLETE
-All input text fields have been fixed for proper visibility across the entire app!
+All input text fields have been fixed for proper visibility across the entire app, including admin portal!

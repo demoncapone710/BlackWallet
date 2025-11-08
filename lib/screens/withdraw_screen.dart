@@ -15,6 +15,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
   List<Map<String, dynamic>> _paymentMethods = [];
   int? _selectedPaymentMethodId;
   bool _loading = false;
+  bool _instantTransfer = false; // For instant transfers with fee
 
   @override
   void initState() {
@@ -60,14 +61,26 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
     final result = await ApiService.withdrawToBank(
       _selectedPaymentMethodId!.toString(),
       amount,
+      instantTransfer: _instantTransfer,
     );
 
     setState(() => _loading = false);
 
     if (result != null) {
+      final instantFee = result['instant_fee'] ?? 0.0;
+      final totalDeducted = result['total_deducted'] ?? amount;
+      final transferTime = _instantTransfer ? 'within minutes' : '1-3 business days';
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Withdrawal of \$${amount.toStringAsFixed(2)} initiated\nTypically arrives in 1-3 business days'),
+          content: Text(
+            _instantTransfer
+              ? 'Instant transfer of \$${amount.toStringAsFixed(2)} initiated!\n'
+                'Fee: \$${instantFee.toStringAsFixed(2)} | Total: \$${totalDeducted.toStringAsFixed(2)}\n'
+                'Funds will arrive within minutes'
+              : 'Withdrawal of \$${amount.toStringAsFixed(2)} initiated\n'
+                'Typically arrives in 1-3 business days'
+          ),
           duration: const Duration(seconds: 4),
         ),
       );
@@ -219,6 +232,88 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                 child: const Text('Withdraw All'),
               ),
               const SizedBox(height: 24),
+              
+              // Instant Transfer Toggle
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _instantTransfer ? const Color(0xFFDC143C) : Colors.grey.shade300,
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: SwitchListTile(
+                  title: Row(
+                    children: [
+                      Icon(
+                        Icons.flash_on,
+                        color: _instantTransfer ? const Color(0xFFDC143C) : Colors.grey,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Instant Transfer',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 8, left: 28),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _instantTransfer 
+                            ? '⚡ Arrives within minutes'
+                            : '🕐 Arrives in 1-3 business days',
+                          style: TextStyle(
+                            color: _instantTransfer ? const Color(0xFFDC143C) : Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
+                        if (_instantTransfer && _amountController.text.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Builder(
+                              builder: (context) {
+                                final amount = double.tryParse(_amountController.text) ?? 0;
+                                final fee = amount > 0 ? (amount * 0.015).clamp(0.25, double.infinity) : 0;
+                                return Text(
+                                  'Fee: \$${fee.toStringAsFixed(2)} (1.5%, min \$0.25)',
+                                  style: TextStyle(
+                                    color: Colors.orange[700],
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  value: _instantTransfer,
+                  activeColor: const Color(0xFFDC143C),
+                  onChanged: (value) {
+                    setState(() {
+                      _instantTransfer = value;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+              
               ElevatedButton(
                 onPressed: _loading || _paymentMethods.isEmpty ? null : _withdraw,
                 style: ElevatedButton.styleFrom(
@@ -257,8 +352,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'ACH transfers typically take 1-3 business days to arrive in your bank account. '
-                      'No fees for standard transfers.',
+                      'Standard transfers are free and take 1-3 business days. '
+                      'Instant transfers arrive within minutes for a 1.5% fee (minimum \$0.25).',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.blue[900],

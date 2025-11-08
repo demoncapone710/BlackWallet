@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   static const baseUrl = "http://10.0.0.104:8000";
 
-  static Future<String?> login(String username, String password) async {
+  static Future<Map<String, dynamic>?> login(String username, String password) async {
     try {
       print("Attempting login to $baseUrl/login");
       final res = await http.post(
@@ -17,12 +17,24 @@ class ApiService {
       print("Login response status: ${res.statusCode}");
       print("Login response body: ${res.body}");
       
-      if (res.statusCode == 200) return jsonDecode(res.body)["token"];
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return {
+          'token': data['token'],
+          'is_admin': data['is_admin'] ?? false,
+          'username': data['username'],
+        };
+      }
       return null;
     } catch (e) {
       print("Login error: $e");
       return null;
     }
+  }
+
+  static Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('token');
   }
 
   static Future<bool> signup(
@@ -768,4 +780,363 @@ class ApiService {
       return null;
     }
   }
+
+  // STRIPE PAYMENT INTENTS
+  static Future<Map<String, dynamic>> createSetupIntent() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) throw Exception("Not authenticated");
+
+      final res = await http.post(
+        Uri.parse("$baseUrl/api/stripe-connect/setup-intent"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+      
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+      throw Exception("Failed to create setup intent");
+    } catch (e) {
+      print("Create setup intent error: $e");
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> createDepositIntent(double amount) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) throw Exception("Not authenticated");
+
+      final res = await http.post(
+        Uri.parse("$baseUrl/api/stripe-connect/deposit-intent"),
+        body: jsonEncode({"amount": amount}),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+      
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+      throw Exception("Failed to create deposit intent");
+    } catch (e) {
+      print("Create deposit intent error: $e");
+      rethrow;
+    }
+  }
+
+  // OFFLINE TRANSACTION SYNC
+  static Future<Map<String, dynamic>?> syncOfflineTransaction(Map<String, dynamic> transaction) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) return null;
+
+      final res = await http.post(
+        Uri.parse("$baseUrl/api/transactions/sync-offline"),
+        body: jsonEncode(transaction),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+      
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+      return null;
+    } catch (e) {
+      print("Sync offline transaction error: $e");
+      return null;
+    }
+  }
+
+  // ADMIN USER MANAGEMENT
+  static Future<Map<String, dynamic>> createUser({
+    required String username,
+    required String email,
+    required String password,
+    String? fullName,
+    String? phone,
+    double initialBalance = 0.0,
+    bool isAdmin = false,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) throw Exception("Not authenticated");
+
+      final res = await http.post(
+        Uri.parse("$baseUrl/api/admin/users"),
+        body: jsonEncode({
+          "username": username,
+          "email": email,
+          "password": password,
+          "full_name": fullName,
+          "phone": phone,
+          "initial_balance": initialBalance,
+          "is_admin": isAdmin,
+        }),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+      
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      } else {
+        final error = jsonDecode(res.body);
+        throw Exception(error['detail'] ?? 'Failed to create user');
+      }
+    } catch (e) {
+      print("Create user error: $e");
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteUser({
+    required int userId,
+    required String confirmUsername,
+    required String reason,
+    String? transferBalanceTo,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) throw Exception("Not authenticated");
+
+      final res = await http.delete(
+        Uri.parse("$baseUrl/api/admin/users/$userId"),
+        body: jsonEncode({
+          "confirm_username": confirmUsername,
+          "reason": reason,
+          "transfer_balance_to": transferBalanceTo,
+        }),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+      
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      } else {
+        final error = jsonDecode(res.body);
+        throw Exception(error['detail'] ?? 'Failed to delete user');
+      }
+    } catch (e) {
+      print("Delete user error: $e");
+      rethrow;
+    }
+  }
+
+  static Future<void> resetUserPassword({
+    required int userId,
+    required String newPassword,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) throw Exception("Not authenticated");
+
+      final res = await http.post(
+        Uri.parse("$baseUrl/api/admin/users/$userId/reset-password"),
+        body: jsonEncode({
+          "new_password": newPassword,
+        }),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+      
+      if (res.statusCode != 200) {
+        final error = jsonDecode(res.body);
+        throw Exception(error['detail'] ?? 'Failed to reset password');
+      }
+    } catch (e) {
+      print("Reset password error: $e");
+      rethrow;
+    }
+  }
+
+  // MONEY INVITES
+  static Future<Map<String, dynamic>> sendMoneyInvite({
+    required String method,
+    required String contact,
+    required double amount,
+    String? message,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) throw Exception("Not authenticated");
+
+      final res = await http.post(
+        Uri.parse("$baseUrl/api/invites/send-invite"),
+        body: jsonEncode({
+          "method": method,
+          "contact": contact,
+          "amount": amount,
+          "message": message,
+        }),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+      
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      } else {
+        final error = jsonDecode(res.body);
+        throw Exception(error['detail'] ?? 'Failed to send invite');
+      }
+    } catch (e) {
+      print("Send invite error: $e");
+      rethrow;
+    }
+  }
+
+  static Future<List<dynamic>> getSentInvites() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) return [];
+
+      final res = await http.get(
+        Uri.parse("$baseUrl/api/invites/sent"),
+        headers: {"Authorization": "Bearer $token"},
+      );
+      
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['invites'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      print("Get sent invites error: $e");
+      return [];
+    }
+  }
+
+  static Future<List<dynamic>> getReceivedInvites() async {
+    try:
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) return [];
+
+      final res = await http.get(
+        Uri.parse("$baseUrl/api/invites/received"),
+        headers: {"Authorization": "Bearer $token"},
+      );
+      
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['invites'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      print("Get received invites error: $e");
+      return [];
+    }
+  }
+
+  static Future<void> markInviteOpened(int inviteId) async {
+    try:
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) return;
+
+      await http.post(
+        Uri.parse("$baseUrl/api/invites/$inviteId/open"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+    } catch (e) {
+      print("Mark invite opened error: $e");
+    }
+  }
+
+  static Future<Map<String, dynamic>> acceptInvite(String inviteToken) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) throw Exception("Not authenticated");
+
+      final res = await http.post(
+        Uri.parse("$baseUrl/api/invites/accept"),
+        body: jsonEncode({"invite_token": inviteToken}),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+      
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      } else {
+        final error = jsonDecode(res.body);
+        throw Exception(error['detail'] ?? 'Failed to accept invite');
+      }
+    } catch (e) {
+      print("Accept invite error: $e");
+      rethrow;
+    }
+  }
+
+  static Future<void> declineInvite(int inviteId) async {
+    try:
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) throw Exception("Not authenticated");
+
+      final res = await http.post(
+        Uri.parse("$baseUrl/api/invites/$inviteId/decline"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+      
+      if (res.statusCode != 200) {
+        final error = jsonDecode(res.body);
+        throw Exception(error['detail'] ?? 'Failed to decline invite');
+      }
+    } catch (e) {
+      print("Decline invite error: $e");
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getInviteStatus(int inviteId) async {
+    try:
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) return null;
+
+      final res = await http.get(
+        Uri.parse("$baseUrl/api/invites/$inviteId/status"),
+        headers: {"Authorization": "Bearer $token"},
+      );
+      
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+      return null;
+    } catch (e) {
+      print("Get invite status error: $e");
+      return null;
+    }
+  }
 }
+

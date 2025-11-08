@@ -8,10 +8,16 @@ import os
 
 router = APIRouter()
 
-# Set Stripe API key
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-if not stripe.api_key:
-    raise ValueError("STRIPE_SECRET_KEY environment variable is required")
+# Set Stripe API key based on mode
+STRIPE_MODE = os.getenv("STRIPE_MODE", "test").lower()
+if STRIPE_MODE == "live":
+    stripe.api_key = os.getenv("STRIPE_LIVE_SECRET_KEY")
+    if not stripe.api_key:
+        raise ValueError("STRIPE_LIVE_SECRET_KEY environment variable is required for live mode")
+else:
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    if not stripe.api_key:
+        raise ValueError("STRIPE_SECRET_KEY environment variable is required for test mode")
 
 def get_db():
     db = SessionLocal()
@@ -23,7 +29,7 @@ def get_db():
 @router.post("/setup-intent")
 def create_setup_intent(user=Depends(get_current_user), db: Session = Depends(get_db)):
     """Create a Stripe SetupIntent for adding payment methods"""
-    db_user = db.query(User).filter_by(username=user["username"]).first()
+    db_user = user  # user is already a User object
     
     # Create or get Stripe customer
     if not db_user.stripe_customer_id:
@@ -48,7 +54,7 @@ def create_setup_intent(user=Depends(get_current_user), db: Session = Depends(ge
 @router.get("/list")
 def list_payment_methods(user=Depends(get_current_user), db: Session = Depends(get_db)):
     """List all payment methods for the current user"""
-    db_user = db.query(User).filter_by(username=user["username"]).first()
+    db_user = user  # user is already a User object
     
     if not db_user.stripe_customer_id:
         return {"payment_methods": []}
@@ -101,7 +107,7 @@ def attach_payment_method(
     db: Session = Depends(get_db)
 ):
     """Attach a payment method to the user's account"""
-    db_user = db.query(User).filter_by(username=user["username"]).first()
+    db_user = user  # user is already a User object
     
     if not db_user.stripe_customer_id:
         raise HTTPException(status_code=400, detail="No Stripe customer found")
@@ -148,7 +154,7 @@ def set_default_payment_method(
     db: Session = Depends(get_db)
 ):
     """Set a payment method as default"""
-    db_user = db.query(User).filter_by(username=user["username"]).first()
+    db_user = user  # user is already a User object
     
     # Clear all defaults
     db.query(PaymentMethod).filter_by(user_id=db_user.id).update({"is_default": False})
@@ -174,7 +180,7 @@ def remove_payment_method(
     db: Session = Depends(get_db)
 ):
     """Remove a payment method"""
-    db_user = db.query(User).filter_by(username=user["username"]).first()
+    db_user = user  # user is already a User object
     
     # Detach from Stripe
     try:
@@ -205,7 +211,7 @@ def deposit_funds(
     if amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be positive")
     
-    db_user = db.query(User).filter_by(username=user["username"]).first()
+    db_user = user  # user is already a User object
     
     # Get payment method (use default if not specified)
     if not payment_method_id:
@@ -258,7 +264,7 @@ def withdraw_funds(
     if amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be positive")
     
-    db_user = db.query(User).filter_by(username=user["username"]).first()
+    db_user = user  # user is already a User object
     
     if db_user.balance < amount:
         raise HTTPException(status_code=400, detail="Insufficient funds")

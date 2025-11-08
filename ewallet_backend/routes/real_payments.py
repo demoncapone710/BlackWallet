@@ -359,3 +359,19 @@ async def get_stripe_balance(
     except Exception as e:
         logger.error(f"Balance check error: {e}")
         raise HTTPException(500, str(e))
+
+
+@router.get("/config/stripe-mode")
+async def get_stripe_mode():
+    """
+    Get current Stripe mode (test or live)
+    Public endpoint - no authentication required
+    """
+    from config import settings
+    
+    mode = settings.STRIPE_MODE.lower()
+    return {
+        "mode": mode,
+        "is_live": mode == "live",
+        "warning": "⚠️ Live mode - real money transactions!" if mode == "live" else "🧪 Test mode - no real money"
+    }

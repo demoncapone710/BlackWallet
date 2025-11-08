@@ -16,18 +16,16 @@ def get_db():
 
 @router.get("/me")
 def get_current_user_info(user=Depends(get_current_user), db: Session = Depends(get_db)):
-    db_user = db.query(User).filter_by(username=user["username"]).first()
-    return {"username": db_user.username, "balance": db_user.balance, "is_admin": db_user.is_admin}
+    return {"username": user.username, "balance": user.balance, "is_admin": user.is_admin}
 
 @router.get("/balance")
 def get_balance(user=Depends(get_current_user), db: Session = Depends(get_db)):
-    db_user = db.query(User).filter_by(username=user["username"]).first()
-    return {"balance": db_user.balance}
+    return {"balance": user.balance}
 
 @router.post("/transfer")
 def transfer(data: Transfer, user=Depends(get_current_user), db: Session = Depends(get_db)):
     # Verify the sender is the authenticated user
-    if data.sender != user["username"]:
+    if data.sender != user.username:
         raise HTTPException(status_code=403, detail="Cannot transfer from another user's account")
     
     sender = db.query(User).filter_by(username=data.sender).first()
@@ -52,7 +50,7 @@ def transfer(data: Transfer, user=Depends(get_current_user), db: Session = Depen
 
 @router.get("/transactions")
 def get_transactions(user=Depends(get_current_user), db: Session = Depends(get_db)):
-    username = user["username"]
+    username = user.username
     transactions = db.query(Transaction).filter(
         (Transaction.sender == username) | (Transaction.receiver == username)
     ).order_by(Transaction.id.desc()).limit(50).all()

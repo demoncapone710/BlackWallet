@@ -81,6 +81,7 @@ class BlackWalletApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF0A0A0A),
         brightness: Brightness.dark,
         
+        // Default text style for all text (including TextField input)
         textTheme: const TextTheme(
           displayLarge: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           displayMedium: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -158,6 +159,13 @@ class BlackWalletApp extends StatelessWidget {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           prefixIconColor: const Color(0xFFDC143C),
           suffixIconColor: const Color(0xFF666666),
+        ),
+        
+        // Global text field text color
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: const Color(0xFFDC143C),
+          ),
         ),
         
         textSelectionTheme: const TextSelectionThemeData(

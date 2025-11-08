@@ -9,8 +9,18 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-# Initialize Stripe
-stripe.api_key = settings.STRIPE_SECRET_KEY
+# Initialize Stripe based on mode
+stripe_mode = settings.STRIPE_MODE.lower()
+if stripe_mode == "live":
+    stripe.api_key = settings.STRIPE_LIVE_SECRET_KEY
+    if not stripe.api_key:
+        raise ValueError("STRIPE_LIVE_SECRET_KEY is required when STRIPE_MODE=live")
+    logger.info("🔴 Stripe Connect initialized in LIVE mode")
+else:
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    if not stripe.api_key:
+        raise ValueError("STRIPE_SECRET_KEY is required when STRIPE_MODE=test")
+    logger.info("🧪 Stripe Connect initialized in TEST mode")
 
 
 class StripePaymentService:
@@ -219,6 +229,168 @@ class StripePaymentService:
         except stripe.error.StripeError as e:
             logger.error(f"Balance retrieval failed: {e}")
             raise Exception(f"Failed to get balance: {str(e)}")
+    
+    @staticmethod
+    async def get_account_status(stripe_account_id: str) -> Dict:
+        """
+        Get comprehensive account status for dashboard display
+        """
+        try:
+            account = stripe.Account.retrieve(stripe_account_id)
+            
+            return {
+                "onboarding_complete": account.details_submitted,
+                "charges_enabled": account.charges_enabled,
+                "payouts_enabled": account.payouts_enabled,
+                "requirements_due": account.requirements.currently_due if account.requirements else [],
+                "requirements_eventually_due": account.requirements.eventually_due if account.requirements else [],
+                "disabled_reason": account.requirements.disabled_reason if account.requirements else None
+            }
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to get account status: {e}")
+            raise Exception(f"Failed to get account status: {str(e)}")
+    
+    @staticmethod
+    async def list_bank_accounts(stripe_account_id: str) -> list:
+        """
+        List all bank accounts connected to user's Stripe account
+        """
+        try:
+            account = stripe.Account.retrieve(stripe_account_id)
+            external_accounts = stripe.Account.list_external_accounts(
+                stripe_account_id,
+                object="bank_account",
+                limit=10
+            )
+            
+            return [
+                {
+                    "id": ba.id,
+                    "bank_name": ba.bank_name,
+                    "last4": ba.last4,
+                    "currency": ba.currency,
+                    "status": ba.status,
+                    "default": ba.default_for_currency
+                }
+                for ba in external_accounts.data
+            ]
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to list bank accounts: {e}")
+            raise Exception(f"Failed to list bank accounts: {str(e)}")
+    
+    @staticmethod
+    async def process_deposit(user_id: int, amount: float, payment_method_id: str, stripe_account_id: str) -> Dict:
+        """
+        Process a deposit: charge user's payment method and add to wallet
+        """
+        try:
+            amount_cents = int(amount * 100)
+            
+            # Create payment intent to charge the user
+            payment_intent = stripe.PaymentIntent.create(
+                amount=amount_cents,
+                currency="usd",
+                payment_method=payment_method_id,
+                confirmation_method="automatic",
+                confirm=True,
+                metadata={
+                    "user_id": str(user_id),
+                    "type": "wallet_deposit",
+                    "stripe_account_id": stripe_account_id
+                }
+            )
+            
+            logger.info(f"Deposit processed for user {user_id}: ${amount}")
+            
+            return {
+                "transaction_id": payment_intent.id,
+                "status": payment_intent.status,
+                "amount": amount
+            }
+        except stripe.error.StripeError as e:
+            logger.error(f"Deposit failed: {e}")
+            raise Exception(f"Deposit failed: {str(e)}")
+    
+    @staticmethod
+    async def process_withdrawal(user_id: int, amount: float, stripe_account_id: str) -> Dict:
+        """
+        Process a withdrawal: transfer from platform to user's bank account
+        """
+        try:
+            amount_cents = int(amount * 100)
+            
+            # Create a payout to user's bank account
+            payout = stripe.Payout.create(
+                amount=amount_cents,
+                currency="usd",
+                stripe_account=stripe_account_id,
+                metadata={
+                    "user_id": str(user_id),
+                    "type": "wallet_withdrawal"
+                }
+            )
+            
+            logger.info(f"Withdrawal processed for user {user_id}: ${amount}")
+            
+            return {
+                "transaction_id": payout.id,
+                "status": payout.status,
+                "estimated_arrival": payout.arrival_date
+            }
+        except stripe.error.StripeError as e:
+            logger.error(f"Withdrawal failed: {e}")
+            raise Exception(f"Withdrawal failed: {str(e)}")
+    
+    @staticmethod
+    async def get_transaction_history(stripe_account_id: str, limit: int = 10) -> list:
+        """
+        Get recent transactions (charges and payouts) for the account
+        """
+        try:
+            # Get charges (deposits)
+            charges = stripe.Charge.list(
+                limit=limit,
+                stripe_account=stripe_account_id
+            )
+            
+            # Get payouts (withdrawals)
+            payouts = stripe.Payout.list(
+                limit=limit,
+                stripe_account=stripe_account_id
+            )
+            
+            transactions = []
+            
+            # Add charges
+            for charge in charges.data:
+                transactions.append({
+                    "id": charge.id,
+                    "type": "deposit",
+                    "amount": charge.amount / 100,
+                    "currency": charge.currency,
+                    "status": charge.status,
+                    "created": charge.created
+                })
+            
+            # Add payouts
+            for payout in payouts.data:
+                transactions.append({
+                    "id": payout.id,
+                    "type": "withdrawal",
+                    "amount": payout.amount / 100,
+                    "currency": payout.currency,
+                    "status": payout.status,
+                    "created": payout.created,
+                    "arrival_date": payout.arrival_date
+                })
+            
+            # Sort by creation date (newest first)
+            transactions.sort(key=lambda x: x["created"], reverse=True)
+            
+            return transactions[:limit]
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to get transaction history: {e}")
+            raise Exception(f"Failed to get transaction history: {str(e)}")
 
 
 class PlaidBankService:

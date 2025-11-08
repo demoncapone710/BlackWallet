@@ -27,6 +27,10 @@ dependencies:
   url_launcher: ^6.3.0  # For SMS/email links
   email_validator: ^3.0.0  # Email validation
   provider: ^6.1.2  # Theme management
+  flutter_contacts: ^1.1.7  # Contact picker
+  nfc_manager: ^3.5.0  # NFC support
+  flutter_email_sender: ^6.0.3  # Send emails
+  flutter_sms: ^2.3.3  # Send SMS
 
 dev_dependencies:
   flutter_test:

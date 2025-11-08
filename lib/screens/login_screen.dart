@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import 'wallet_screen.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
+import 'admin/admin_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -28,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
       isLoading = true;
     });
 
-    final token = await ApiService.login(
+    final loginData = await ApiService.login(
       usernameController.text,
       passwordController.text,
     );
@@ -37,13 +38,24 @@ class _LoginScreenState extends State<LoginScreen> {
       isLoading = false;
     });
 
-    if (token != null) {
+    if (loginData != null && loginData['token'] != null) {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', token);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => WalletScreen()),
-      );
+      await prefs.setString('token', loginData['token']);
+      await prefs.setBool('is_admin', loginData['is_admin'] ?? false);
+      await prefs.setString('username', loginData['username'] ?? '');
+      
+      // Navigate to admin dashboard if admin, otherwise wallet screen
+      if (loginData['is_admin'] == true) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => AdminDashboardScreen()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => WalletScreen()),
+        );
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Login failed. Check your credentials.")),

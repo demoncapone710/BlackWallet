@@ -8,6 +8,7 @@ python-multipart==0.0.12
 stripe==11.1.1
 python-dotenv==1.0.1
 pydantic[email]==2.10.3     # Email validation
+schedule==1.2.2             # Background task scheduling
 
 # SMS & Email Notifications
 twilio==9.3.7               # SMS via Twilio (optional)

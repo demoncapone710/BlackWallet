@@ -82,10 +82,18 @@ class Settings(BaseSettings):
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_PHONE_NUMBER: Optional[str] = None
     
-    # Stripe
+    # Stripe - Test Mode Keys
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_PUBLISHABLE_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
+    
+    # Stripe - Live Mode Keys
+    STRIPE_LIVE_SECRET_KEY: Optional[str] = None
+    STRIPE_LIVE_PUBLISHABLE_KEY: Optional[str] = None
+    STRIPE_LIVE_WEBHOOK_SECRET: Optional[str] = None
+    
+    # Stripe - Mode Selector (test or live)
+    STRIPE_MODE: str = "test"
     
     # Security Headers
     HSTS_MAX_AGE: int = 31536000  # 1 year

@@ -12,13 +12,19 @@ TEST_USER = {"username": "test", "password": "test123"}
 def login():
     """Login and get JWT token"""
     response = requests.post(
-        f"{BASE_URL}/api/auth/login",
+        f"{BASE_URL}/login",
         json=TEST_USER
     )
     if response.status_code == 200:
-        token = response.json()["access_token"]
-        print(f"✅ Logged in successfully")
-        return token
+        data = response.json()
+        print(f"Login response: {json.dumps(data, indent=2)}")
+        token = data.get("access_token") or data.get("token")
+        if token:
+            print(f"✅ Logged in successfully")
+            return token
+        else:
+            print(f"❌ No token in response: {data}")
+            return None
     else:
         print(f"❌ Login failed: {response.text}")
         return None
