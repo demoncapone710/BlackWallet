@@ -1,0 +1,25 @@
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+sqlalchemy==2.0.36
+passlib==1.7.4
+bcrypt==4.2.1
+pyjwt==2.9.0
+python-multipart==0.0.12
+stripe==11.1.1
+python-dotenv==1.0.1
+pydantic[email]==2.10.3     # Email validation
+
+# SMS & Email Notifications
+twilio==9.3.7               # SMS via Twilio (optional)
+
+# Production Security & Performance
+slowapi==0.1.9              # Rate limiting
+redis==5.2.0                # Caching & session management
+psycopg2-binary==2.9.10     # PostgreSQL driver (production DB)
+gunicorn==23.0.0            # Production WSGI server
+python-json-logger==3.1.0   # Structured logging
+prometheus-client==0.21.0   # Metrics & monitoring
+sentry-sdk[fastapi]==2.18.0 # Error tracking
+cryptography==44.0.0        # Enhanced encryption
+certifi==2024.8.30          # SSL certificates
+python-jose[cryptography]==3.3.0  # JWT with cryptography backend

@@ -1,0 +1,62 @@
+version: '3.8'
+
+# Development Docker Compose configuration
+# Simpler setup for local development with hot reload
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: blackwallet_postgres_dev
+    environment:
+      POSTGRES_DB: blackwallet_dev
+      POSTGRES_USER: dev_user
+      POSTGRES_PASSWORD: dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - blackwallet_dev
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: blackwallet_redis_dev
+    ports:
+      - "6379:6379"
+    networks:
+      - blackwallet_dev
+
+  # BlackWallet API (development mode with hot reload)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: blackwallet_api_dev
+    environment:
+      DEBUG: "True"
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql://dev_user:dev_password@postgres:5432/blackwallet_dev
+      REDIS_URL: redis://redis:6379/0
+      LOG_LEVEL: DEBUG
+      RATE_LIMIT_ENABLED: "False"
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source code for hot reload
+      - .:/app
+      - ./logs:/app/logs
+    networks:
+      - blackwallet_dev
+    depends_on:
+      - postgres
+      - redis
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_dev_data:
+
+networks:
+  blackwallet_dev:
+    driver: bridge

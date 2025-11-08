@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BlackWallet</string>
+    <string name="hce_service_description">BlackWallet Contactless Payment</string>
+    <string name="aid_description">BlackWallet Payment Application</string>
+</resources>
